@@ -286,7 +286,77 @@ services:
     depends_on:
       - pgvector
     networks:
-      - my-network      
+      - my-network
+
+  # 向量数据库 Qdrant
+  # Dashboard: http://your-server-ip:6333/dashboard
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: qdrant
+    restart: always
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC API
+    volumes:
+      - ./qdrant/storage:/qdrant/storage
+      - ./qdrant/snapshots:/qdrant/snapshots
+      - ./qdrant/config/production.yaml:/qdrant/config/production.yaml
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - my-network
+
+  # 向量数据库 Chroma
+  # API 文档: http://your-server-ip:8000/docs
+  chroma:
+    image: chromadb/chroma:0.4.22
+    container_name: chroma
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma/data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - my-network
+
+  # 文档数据库 MongoDB
+  # 账号: admin / 密码: admin123
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
+      - MONGO_INITDB_DATABASE=admin
+    volumes:
+      - ./mongodb/data:/data/db
+      - ./mongodb/configdb:/data/configdb
+      - ./mongodb/init/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - my-network
 
 networks:
   my-network:

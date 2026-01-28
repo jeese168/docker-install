@@ -47,15 +47,23 @@ if ! command -v docker &> /dev/null; then
     error "Docker未安装，请先运行install_docker.sh安装Docker"
 fi
 
-# 检查docker-compose是否已安装
-if ! command -v docker-compose &> /dev/null; then
+# 检查docker compose是否可用
+DOCKER_COMPOSE_CMD=""
+if docker compose version &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker compose"
+    info "检测到Docker Compose V2，使用 'docker compose' 命令"
+elif command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+    info "检测到Docker Compose V1，使用 'docker-compose' 命令"
+else
     info "正在安装docker-compose..."
     curl -L "https://gitee.com/fustack/docker-compose/releases/download/v2.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
-    if ! command -v docker-compose &> /dev/null; then
-        error "docker-compose安装失败，请手动安装"
-    else
+    if command -v docker-compose &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker-compose"
         info "docker-compose安装成功"
+    else
+        error "docker-compose安装失败，请手动安装"
     fi
 fi
 
@@ -100,6 +108,9 @@ declare -A software_sizes=(
     ["ollama"]=200
     ["pgvector"]=150
     ["pgvector-admin"]=50
+    ["qdrant"]=100
+    ["chroma"]=150
+    ["mongodb"]=400
 )
 
 # 定义软件的账号密码信息
@@ -119,6 +130,9 @@ declare -A software_credentials=(
     ["ollama"]="访问地址：http://服务器IP:11434"
     ["pgvector"]="账号：postgres 密码：postgres 端口：5432 数据库：springai"
     ["pgvector-admin"]="账号：admin@qq.com 密码：admin 访问地址：http://服务器IP:5050"
+    ["qdrant"]="HTTP端口：6333 gRPC端口：6334 Dashboard：http://服务器IP:6333/dashboard"
+    ["chroma"]="端口：8000 API文档：http://服务器IP:8000/docs"
+    ["mongodb"]="账号：admin 密码：admin123 端口：27017 连接串：mongodb://admin:admin123@服务器IP:27017/?authSource=admin"
 )
 
 # 检查已安装的软件
@@ -159,10 +173,10 @@ software_list=("nacos" "mysql" "phpmyadmin" "redis" "redis-admin" "rabbitmq" "el
 
 # 如果选择了原始配置文件，添加只在原始配置中存在的软件
 if [ "$config_choice" = "1" ]; then
-    software_list+=("xxl-job-admin" "prometheus" "grafana" "ollama" "pgvector" "pgvector-admin")
+    software_list+=("xxl-job-admin" "prometheus" "grafana" "ollama" "pgvector" "pgvector-admin" "qdrant" "chroma" "mongodb")
 else
     # 阿里云镜像配置文件中也包含这些软件
-    software_list+=("ollama" "pgvector" "pgvector-admin")
+    software_list+=("ollama" "pgvector" "pgvector-admin" "qdrant" "chroma" "mongodb")
 fi
 declare -A software_selected
 
@@ -480,7 +494,7 @@ for service in "${!services_to_install[@]}"; do
 done
 
 if [ ${#services_to_start[@]} -gt 0 ]; then
-    docker-compose -f docker-compose-temp.yml up -d "${services_to_start[@]}"
+    $DOCKER_COMPOSE_CMD -f docker-compose-temp.yml up -d "${services_to_start[@]}"
 else
     info "没有需要启动的新服务"
 fi
@@ -522,6 +536,34 @@ if [ $? -eq 0 ]; then
                 info "Ollama已安装成功，您可以通过以下命令拉取和运行模型："
                 info "拉取模型：docker exec -it ollama ollama pull deepseek-r1:1.5b"
                 info "运行模型：docker exec -it ollama ollama run deepseek-r1:1.5b"
+            fi
+
+            # Qdrant安装后的提示
+            if [ "$software" = "qdrant" ]; then
+                info "Qdrant已安装成功，您可以："
+                info "1. 访问Dashboard：http://服务器IP:6333/dashboard"
+                info "2. 健康检查：curl http://服务器IP:6333/healthz"
+                info "3. 查看所有集合：curl http://服务器IP:6333/collections"
+                info "4. HTTP API端口：6333, gRPC端口：6334"
+            fi
+
+            # Chroma安装后的提示
+            if [ "$software" = "chroma" ]; then
+                info "Chroma已安装成功，您可以："
+                info "1. 访问API文档：http://服务器IP:8000/docs"
+                info "2. 健康检查：curl http://服务器IP:8000/api/v1/heartbeat"
+                info "3. 使用Python客户端连接：chromadb.HttpClient(host='服务器IP', port=8000)"
+                info "4. 查看使用说明：$(pwd)/chroma/README.md"
+            fi
+
+            # MongoDB安装后的提示
+            if [ "$software" = "mongodb" ]; then
+                info "MongoDB已安装成功，您可以："
+                info "1. 连接命令：docker exec -it mongodb mongosh -u admin -p admin123 --authenticationDatabase admin"
+                info "2. 连接字符串：mongodb://admin:admin123@服务器IP:27017/?authSource=admin"
+                info "3. 初始化已创建测试数据库(testdb)和测试用户(testuser/testpass)"
+                info "4. 查看使用说明：$(pwd)/mongodb/README.md"
+                info "注意：生产环境请务必修改默认密码！"
             fi
         else
             warning "$software 安装失败"
