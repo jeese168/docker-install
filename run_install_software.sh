@@ -125,8 +125,8 @@ declare -A software_credentials=(
     ["logstash"]="端口：4560,50000,9600"
     ["kibana"]="访问地址：http://服务器IP:5601"
     ["xxl-job-admin"]="账号：admin 密码：123456 访问地址：http://服务器IP:9090/xxl-job-admin"
-    ["prometheus"]="访问地址：http://服务器IP:9090"
-    ["grafana"]="访问地址：http://服务器IP:4000"
+    ["prometheus"]="访问地址：http://服务器IP:9091"
+    ["grafana"]="账号：admin 密码：admin 访问地址：http://服务器IP:4000"
     ["ollama"]="访问地址：http://服务器IP:11434"
     ["pgvector"]="账号：postgres 密码：postgres 端口：5432 数据库：springai"
     ["pgvector-admin"]="账号：admin@qq.com 密码：admin 访问地址：http://服务器IP:5050"
@@ -297,6 +297,47 @@ if [[ -n "${software_selected[pgvector-admin]}" ]]; then
     info "   - 用户名：postgres"
     info "   - 密码：postgres"
     info "4. 如需修改默认登录信息，请编辑docker-compose-software.yml文件中的环境变量"
+    echo "-----------------------------------------------------------"
+fi
+
+# XXL-JOB配置提示
+if [[ -n "${software_selected[xxl-job-admin]}" ]]; then
+    echo "-----------------------------------------------------------"
+    header "XXL-JOB配置提示："
+    echo "-----------------------------------------------------------"
+    info "您选择了安装XXL-JOB，请注意："
+    info "1. 默认依赖MySQL数据库，确保已安装MySQL"
+    info "2. 安装后需要等待一段时间才能访问（初始化数据库）"
+    info "3. 访问地址：http://服务器IP:9090/xxl-job-admin"
+    info "4. 默认账号：admin / 密码：123456"
+    echo "-----------------------------------------------------------"
+fi
+
+# Prometheus配置提示
+if [[ -n "${software_selected[prometheus]}" ]]; then
+    echo "-----------------------------------------------------------"
+    header "Prometheus配置提示："
+    echo "-----------------------------------------------------------"
+    info "您选择了安装Prometheus，请确保："
+    info "1. 在安装前配置您的应用监控设置："
+    echo "  $(pwd)/software/prometheus/prometheus.yml"
+    info "2. 确保被监控的应用端口已在防火墙中开放"
+    info "3. 当前配置文件中的目标应用为：'system-app:8091'"
+    info "4. 如需监控其他应用，请修改配置文件中的targets部分"
+    info "5. 访问地址：http://服务器IP:9091 (注意：端口为9091，避免与XXL-JOB冲突)"
+    echo "-----------------------------------------------------------"
+fi
+
+# Grafana配置提示
+if [[ -n "${software_selected[grafana]}" ]]; then
+    echo "-----------------------------------------------------------"
+    header "Grafana配置提示："
+    echo "-----------------------------------------------------------"
+    info "您选择了安装Grafana，请注意："
+    info "1. 默认依赖Prometheus作为数据源"
+    info "2. 访问地址：http://服务器IP:4000"
+    info "3. 默认账号：admin / 密码：admin（首次登录需要修改密码）"
+    info "4. 添加数据源时，Prometheus地址为：http://prometheus:9090"
     echo "-----------------------------------------------------------"
 fi
 
@@ -517,14 +558,31 @@ if [ $? -eq 0 ]; then
                 done
             fi
             
+            # XXL-JOB安装后的提示
+            if [ "$software" = "xxl-job-admin" ]; then
+                info "XXL-JOB已安装成功，请注意："
+                info "1. 访问地址：http://服务器IP:9090/xxl-job-admin"
+                info "2. 默认账号：admin / 密码：123456"
+                info "3. 首次启动需要等待数据库初始化，请稍等片刻后访问"
+            fi
+
             # Prometheus安装后的提示
             if [ "$software" = "prometheus" ]; then
                 info "Prometheus已安装成功，请确保："
                 info "1. 被监控的应用已正确配置并开放端口"
                 info "2. 如需修改监控配置，请编辑：$(pwd)/prometheus/prometheus.yml"
                 info "3. 修改配置后需要重启Prometheus：docker restart prometheus"
+                info "4. 访问地址：http://服务器IP:9091 (注意端口为9091)"
             fi
-            
+
+            # Grafana安装后的提示
+            if [ "$software" = "grafana" ]; then
+                info "Grafana已安装成功，请访问："
+                info "1. 访问地址：http://服务器IP:4000"
+                info "2. 默认账号：admin / 密码：admin（首次登录需修改密码）"
+                info "3. 添加Prometheus数据源：http://prometheus:9090"
+            fi
+
             # Vector DB安装后的提示
             if [ "$software" = "pgvector" ]; then
                 info "Vector DB已安装成功，初始化SQL脚本已自动执行"

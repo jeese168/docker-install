@@ -188,6 +188,54 @@ services:
     depends_on:
       - elasticsearch
 
+  # http://127.0.0.1:9090/xxl-job-admin admin/123456 - 安装后稍等会访问即可
+  # 注意：阿里云镜像仓库暂无此镜像，使用官方镜像（通过 Docker 镜像加速器可正常拉取）
+  xxl-job-admin:
+    image: xuxueli/xxl-job-admin:2.4.1 #M1 Mac 更换镜像 kuschzzp/xxl-job-aarch64:2.4.0
+    container_name: xxl-job-admin
+    restart: always
+    depends_on:
+      - mysql
+    ports:
+      - "9090:9090"
+    links:
+      - mysql
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/xxl_job?serverTimezone=UTC&characterEncoding=utf8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=123456
+      - SERVER_PORT=9090
+    networks:
+      - my-network
+
+  # 数据采集
+  # 注意：阿里云镜像仓库暂无此镜像，使用官方镜像（通过 Docker 镜像加速器可正常拉取）
+  prometheus:
+    image: bitnami/prometheus:2.47.2
+    container_name: prometheus
+    restart: always
+    ports:
+      - 9091:9090
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - my-network
+
+  # 监控界面
+  # 注意：阿里云镜像仓库暂无此镜像，使用官方镜像（通过 Docker 镜像加速器可正常拉取）
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    restart: always
+    ports:
+      - 4000:4000
+    depends_on:
+      - prometheus
+    volumes:
+      - ./grafana:/etc/grafana
+    networks:
+      - my-network
+
   # 对话模型
   # ollama pull deepseek-r1:1.5b
   # 运行模型
